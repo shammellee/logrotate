@@ -28,7 +28,7 @@ sub main
 
 	while(<STDIN>)
 	{
-		my $logBytes = -T $logFile ? -s $logFile : 0;
+		my $logBytes = -f $logFile ? -s $logFile : 0;
 		my $inBytes  = length $_;
 
 		if($inBytes > $maxBytes)
@@ -37,7 +37,7 @@ sub main
 			exit 1;
 		}
 
-		if(-T $logFile and ($logBytes >= $maxBytes or $logBytes + $inBytes > $maxBytes))
+		if(-f $logFile and ($logBytes >= $maxBytes or $logBytes + $inBytes > $maxBytes))
 		{
 			system TAR_CMD,TAR_OPTS,getArchiveName($logFile),$logFile;
 			if($? == 0)
