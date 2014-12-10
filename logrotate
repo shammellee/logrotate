@@ -5,13 +5,15 @@ $| = 1; # disable stdout buffering
 use strict;
 use warnings;
 use v5.10;
-use IO::File;
+use File::Basename;
 use subs qw(dd getTimestamp getArchiveName);
 
 use constant DEFAULT_MAX_BYTES => 10000;
 use constant TAR_CMD           => 'tar';
-use constant TAR_OPTS          => '-czf';
-use constant ZIP_EXT           => 'tar.gz';
+use constant TAR_OPTS_1        => '-czf';
+use constant TAR_OPTS_2        => '-C';
+use constant ZIP_EXT           => '.tar.gz';
+use constant ARCHIVE_SEPARATOR => '_';
 
 main(@ARGV);
 
@@ -23,8 +25,10 @@ sub main
 		exit 0;
 	}
 
-	my ($logFile,$oldMaxBytes) = @_;
-	my $maxBytes               = (defined $oldMaxBytes && $oldMaxBytes > DEFAULT_MAX_BYTES) ? $oldMaxBytes : DEFAULT_MAX_BYTES;
+	my ($logFile,$oldMaxBytes)                 = @_;
+	my ($logFileBase,$logFilePath,$logFileExt) = fileparse $logFile,qr/\.[^.]*/;
+	my $logFileName                            = $logFileBase . $logFileExt;
+	my $maxBytes                               = (defined $oldMaxBytes && $oldMaxBytes > DEFAULT_MAX_BYTES) ? $oldMaxBytes : DEFAULT_MAX_BYTES;
 
 	while(<STDIN>)
 	{
@@ -39,7 +43,7 @@ sub main
 
 		if(-f $logFile and ($logBytes >= $maxBytes or $logBytes + $inBytes > $maxBytes))
 		{
-			system TAR_CMD,TAR_OPTS,getArchiveName($logFile),$logFile;
+			system TAR_CMD,TAR_OPTS_1,getArchiveName($logFile),TAR_OPTS_2,$logFilePath,$logFileName;
 			if($? == 0)
 			{
 				unlink $logFile;
@@ -81,20 +85,9 @@ sub getArchiveName # return string with timestamp and zip extension appended
 	return unless @_;
 
 	my ($filename,$separator) = @_;
-	my $defaultSeparator      = '_';
-	my ($base,$ext)           = ('','');
+	my ($base,$path,$ext)     = fileparse $filename,qr/\.[^.]*/;
 	my $t                     = getTimestamp;
-	my $sep                   = $separator || $defaultSeparator;
-	my $archiveName;
+	my $sep                   = $separator || ARCHIVE_SEPARATOR;
 
-	if((index $filename,'.') >= 0) # files with an extension 'log.txt'
-	{
-		$filename =~ m%(.+)(\..+)$%;
-		$archiveName = "${1}${sep}${t}${2}." . ZIP_EXT;
-	}else # files without an extension 'log'
-	{
-		$archiveName = "${filename}${sep}${t}." . ZIP_EXT;
-	}
-
-	return $archiveName;
+	return "${path}${base}${sep}${t}${ext}" . ZIP_EXT;
 }
